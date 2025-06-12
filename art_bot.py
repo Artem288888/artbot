@@ -9,6 +9,10 @@ def run_fake_web_server():
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Bot is running.")
+        
+        def do_HEAD(self):
+            self.send_response(200)
+            self.end_headers()
 
     port = int(os.getenv("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), Handler)
@@ -134,7 +138,7 @@ def check_site():
                 else:
                     next_button.click()
                     time.sleep(3)
-            except Exception:
+            except Exception as e:
                 break
 
     except Exception as e:
@@ -157,5 +161,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Помилка: {e}")
         time.sleep(300)
-
 
