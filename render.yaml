@@ -1,9 +1,10 @@
 services:
-  - type: worker
+  - type: web
     name: art-bot
     env: python
-    region: frankfurt
     plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python art_bot.py"
-    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
