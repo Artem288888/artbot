@@ -134,7 +134,7 @@ def check_site():
                 else:
                     next_button.click()
                     time.sleep(3)
-            except Exception as e:
+            except Exception:
                 break
 
     except Exception as e:
@@ -157,4 +157,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Помилка: {e}")
         time.sleep(300)
+
 
