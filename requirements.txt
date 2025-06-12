@@ -1,3 +1,4 @@
 selenium
 pyTelegramBotAPI
 webdriver_manager
+beautifulsoup4
