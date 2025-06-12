@@ -14,24 +14,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-def run_fake_web_server():
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Bot is running.")
-
-        def do_HEAD(self):
-            self.send_response(200)
-            self.end_headers()
-
-    port = int(os.getenv("PORT", "10000"))
-    logger.info(f"Запускаємо вебсервер на порті {port}")
-    server = HTTPServer(('0.0.0.0', port), Handler)
-    server.serve_forever()
-
-threading.Thread(target=run_fake_web_server, daemon=True).start()
-
 BOT_TOKEN = '7650951016:AAE1sBUl6Lq-Y9xwbjyyoDlcPhQsWyYpnR4'
 CHAT_ID = '6854620915'
 
@@ -156,6 +138,32 @@ def check_site():
     except Exception as e:
         logger.error(f"Помилка надсилання завершального повідомлення: {e}")
 
+def background_checker():
+    while True:
+        try:
+            logger.info("Запуск перевірки сайту (фоновий потік).")
+            check_site()
+        except Exception as e:
+            logger.error(f"Помилка у фонового циклі: {e}")
+        logger.info("Чекаємо 5 хвилин перед наступною перевіркою...")
+        time.sleep(300)
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running.")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+def run_web_server():
+    port = int(os.getenv("PORT", "10000"))
+    logger.info(f"Запускаємо вебсервер на порті {port}")
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    server.serve_forever()
+
 if __name__ == "__main__":
     logger.info("Бот запущено. Очікуємо нових номерів...")
 
@@ -165,11 +173,9 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Помилка надсилання тестового повідомлення: {e}")
 
-    while True:
-        try:
-            logger.info("Запуск перевірки сайту.")
-            check_site()
-        except Exception as e:
-            logger.error(f"Помилка у головному циклі: {e}")
-        logger.info("Чекаємо 5 хвилин перед наступною перевіркою...")
-        time.sleep(300)
+    # Запускаємо перевірку сайту у фоновому потоці
+    checker_thread = threading.Thread(target=background_checker, daemon=True)
+    checker_thread.start()
+
+    # Запускаємо вебсервер у головному потоці
+    run_web_server()
