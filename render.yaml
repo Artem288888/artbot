@@ -5,5 +5,5 @@ services:
     plan: free
     region: frankfurt
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python bot.py"
+    startCommand: "python art_bot.py"
     autoDeploy: true
