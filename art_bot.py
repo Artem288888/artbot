@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import telebot
 import time
 import os
+from webdriver_manager.chrome import ChromeDriverManager  # <-- додано
 
 # --- Налаштування логування ---
 logging.basicConfig(
@@ -75,11 +76,13 @@ def is_interesting_plate(plate):
 
 def check_site():
     logger.info("Починаємо перевірку сайту...")
-    service = Service(r'C:\Users\Admin\Desktop\бот\chromedriver.exe')  # <- Можливо треба змінити для Linux
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
+
+    # Ось тут використовуємо webdriver_manager
+    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
