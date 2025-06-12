@@ -119,14 +119,20 @@ def check_site():
 
         # Перевіряємо, чи є кнопка "Наступна"
         soup = BeautifulSoup(html, 'html.parser')
-        next_button = soup.find('a', text="Наступна")
-        if not next_button or 'disabled' in next_button.get('class', []):
-            logger.info("Наступна сторінка недоступна, завершуємо перевірку.")
+        next_button = soup.find('a', string="Наступна")
+
+        if not next_button:
+            logger.info("Кнопка 'Наступна' не знайдена, завершуємо перевірку.")
             break
-        else:
-            logger.info(f"Переходимо на наступну сторінку: {page+1}")
-            page += 1
-            time.sleep(2)
+
+        button_classes = next_button.get('class', [])
+        if 'disabled' in button_classes:
+            logger.info("Кнопка 'Наступна' відключена, завершуємо перевірку.")
+            break
+
+        logger.info(f"Переходимо на наступну сторінку: {page + 1}")
+        page += 1
+        time.sleep(2)
 
     if new_found:
         logger.info(f"Загалом знайдено {len(new_found)} нових цікавих номерів.")
