@@ -36,10 +36,10 @@ def load_seen_plates():
         return plates
 
 def save_seen_plates(plates):
-    with open(SEEN_FILE, 'w', encoding='utf-8') as f:
+    with open(SEEN_FILE, 'a', encoding='utf-8') as f:
         for plate in plates:
             f.write(plate + '\n')
-    logger.info(f"Збережено {len(plates)} номерів у файл.")
+    logger.info(f"Збережено {len(plates)} нових номерів у файл.")
 
 seen_plates = load_seen_plates()
 
@@ -66,7 +66,7 @@ def fetch_plates_with_selenium():
     driver.get(url)
 
     all_plates = set()
-    wait = WebDriverWait(driver, 10)
+    wait = WebDriverWait(driver, 20)
 
     while True:
         try:
@@ -87,15 +87,15 @@ def fetch_plates_with_selenium():
             try:
                 next_button = wait.until(EC.presence_of_element_located((By.ID, "exampleTable_next")))
                 classes = next_button.get_attribute("class")
+                logger.info(f"Кнопка 'Наступна' знайдена, класи: {classes}")
                 if "disabled" in classes or not next_button.is_enabled():
-                    logger.info("Кнопка 'Наступна' вимкнена або неактивна, завершуємо пагінацію.")
+                    logger.info("Кнопка 'Наступна' вимкнена, завершуємо пагінацію.")
                     break
                 else:
-                    logger.info("Знайдено і натискаємо кнопку 'Наступна'.")
+                    logger.info("Натискаємо кнопку 'Наступна'...")
                     try:
                         next_button.click()
                     except Exception:
-                        # Якщо click() не працює, використовуємо JavaScript
                         driver.execute_script("arguments[0].click();", next_button)
                     wait.until(EC.staleness_of(rows[0]))
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
@@ -132,7 +132,7 @@ def check_site():
                 bot.send_message(CHAT_ID, f"🆕 Знайдено цікавий номер: {plate}")
             except Exception as e:
                 logger.error(f"Помилка надсилання повідомлення в Telegram: {e}")
-        save_seen_plates(seen_plates)
+        save_seen_plates(new_matches)
     else:
         logger.info("Нових цікавих номерів не знайдено.")
 
