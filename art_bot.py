@@ -83,11 +83,21 @@ def fetch_plates_with_selenium():
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
 
-            next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            parent_li = next_button.find_element(By.XPATH, "..")
-            classes = parent_li.get_attribute("class")
+            # --- ОНОВЛЕНИЙ БЛОК ПАГІНАЦІЇ ---
+            next_button = None
+            buttons = driver.find_elements(By.CSS_SELECTOR, "a.paginate_button.next")
+            for b in buttons:
+                logger.info(f"Кнопка пагінації: текст='{b.text}', id='{b.get_attribute('id')}', клас='{b.get_attribute('class')}'")
+                if b.text.strip() == "Наступна":
+                    next_button = b
+                    break
 
-            if 'disabled' in classes:
+            if not next_button:
+                logger.info("Кнопка 'Наступна' не знайдена (по класу і тексту), завершуємо.")
+                break
+
+            classes = next_button.get_attribute("class")
+            if "disabled" in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
@@ -100,7 +110,7 @@ def fetch_plates_with_selenium():
             time.sleep(1)
 
         except TimeoutException:
-            logger.info("Кнопка 'Наступна' не знайдена (таймаут), завершуємо.")
+            logger.info("Таймаут очікування пагінації, завершуємо.")
             break
         except NoSuchElementException as e:
             logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
