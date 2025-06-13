@@ -56,7 +56,7 @@ def is_interesting_plate(plate):
 
 def fetch_plates_with_selenium():
     options = Options()
-    options.add_argument('--headless')  # Запуск без відкриття вікна браузера
+    options.add_argument('--headless')
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -69,7 +69,7 @@ def fetch_plates_with_selenium():
     wait = WebDriverWait(driver, 10)
 
     while True:
-        time.sleep(3)  # Чекаємо завантаження таблиці
+        time.sleep(3)
 
         try:
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
@@ -86,9 +86,7 @@ def fetch_plates_with_selenium():
             break
 
         try:
-            # Чекаємо, поки кнопка наступна буде клікабельна
             next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            
             parent_li = next_button.find_element(By.XPATH, "..")
             classes = parent_li.get_attribute("class")
             if 'disabled' in classes:
@@ -151,4 +149,20 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running.")
 
     def do_HEAD(self):
-        self.send
+        self.send_response(200)
+        self.end_headers()
+
+def run_web_server():
+    port = int(os.getenv("PORT", "10000"))
+    logger.info(f"Запускаємо вебсервер на порті {port}")
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    # Запускаємо вебсервер у окремому потоці, щоб не блокувати основну роботу
+    web_thread = threading.Thread(target=run_web_server)
+    web_thread.daemon = True
+    web_thread.start()
+
+    # Запускаємо фоновий цикл перевірки
+    background_checker()
