@@ -84,25 +84,27 @@ def fetch_plates_with_selenium():
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
 
-            # Знаходимо кнопку "Наступна" по тексту посилання і клікаємо
-            try:
-                next_button = driver.find_element(By.XPATH, '//a[contains(text(), "Наступна")]')
-                if 'disabled' in next_button.get_attribute("class"):
-                    logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
-                    break
-                logger.info("Переходимо на наступну сторінку.")
-                next_button.click()
+            # Знаходимо кнопку "Наступна" за ID
+            next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
+            parent_li = next_button.find_element(By.XPATH, "..")
+            classes = parent_li.get_attribute("class")
 
-                # Чекаємо, поки оновиться таблиця — перевіряємо, що перший рядок змінився
-                wait.until(EC.staleness_of(rows[0]))
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
-
-                time.sleep(1)  # додатково трохи зачекати, щоб таблиця завантажилась
-
-            except (TimeoutException, NoSuchElementException) as e:
-                logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
+            if 'disabled' in classes:
+                logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
+            logger.info("Переходимо на наступну сторінку.")
+            next_button.click()
+
+            # Чекаємо, поки оновиться таблиця — перевіряємо, що перший рядок змінився
+            wait.until(EC.staleness_of(rows[0]))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+
+            time.sleep(1)  # додатково трохи зачекати, щоб таблиця завантажилась
+
+        except (TimeoutException, NoSuchElementException) as e:
+            logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
+            break
         except Exception as e:
             logger.error(f"Несподівана помилка: {e}")
             break
