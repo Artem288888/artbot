@@ -106,21 +106,28 @@ def fetch_plates_with_selenium():
                     all_plates.add(plate)
 
             try:
-                next_button = wait.until(EC.presence_of_element_located((By.ID, "exampleTable_next")))
+                next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
                 classes = next_button.get_attribute("class")
                 logger.info(f"Кнопка 'Наступна' знайдена, класи: {classes}")
                 if "disabled" in classes or not next_button.is_enabled():
                     logger.info("Кнопка 'Наступна' вимкнена, завершуємо пагінацію.")
                     break
                 else:
+                    # Збережемо поточні рядки таблиці для порівняння після кліку
+                    old_rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+                    old_texts = [row.text for row in old_rows]
+
                     logger.info("Натискаємо кнопку 'Наступна'...")
                     driver.execute_script("arguments[0].click();", next_button)
-                    wait.until(EC.staleness_of(rows[0]))
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+
+                    # Чекаємо оновлення таблиці - поки тексти рядків не зміняться
+                    wait.until(lambda d: [row.text for row in d.find_elements(By.CSS_SELECTOR, "table tbody tr")] != old_texts)
+
                     page_num += 1
                     time.sleep(1)
+
             except TimeoutException:
-                logger.info("Кнопка 'Наступна' не знайдена, завершуємо пагінацію.")
+                logger.info("Кнопка 'Наступна' не знайдена або таблиця не оновилась — завершуємо пагінацію.")
                 break
 
         except Exception as e:
