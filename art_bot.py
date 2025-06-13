@@ -1,11 +1,13 @@
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
-import requests
-from bs4 import BeautifulSoup
 import telebot
 import time
 import os
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,106 +51,75 @@ def is_interesting_plate(plate):
         "7707" in plate_str
     )
 
-def fetch_plates_page(page=1):
-    url = "https://opendata.hsc.gov.ua/check-leisure-license-plates/"
-    params = {
-        "region": "Львівська",
-        "tsc": "Весь регіон",
-        "type_venichle": "light_car_and_truck",
-        "page": page
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    try:
-        r = requests.get(url, params=params, headers=headers, timeout=15)
-        r.raise_for_status()
-        return r.text
-    except Exception as e:
-        logger.error(f"Помилка при запиті сторінки {page}: {e}")
-        return None
+def fetch_plates_with_selenium():
+    options = Options()
+    options.add_argument('--headless')  # Запуск без відкриття вікна браузера
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
 
-def parse_plates(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    table = soup.find("table")
-    if not table:
-        logger.warning("Таблиця не знайдена на сторінці!")
-        return []
+    driver = webdriver.Chrome(options=options)
+    url = "https://opendata.hsc.gov.ua/check-leisure-license-plates/?region=Львівська&tsc=Весь+регіон&type_venichle=light_car_and_truck"
+    driver.get(url)
 
-    plates = []
-    rows = table.tbody.find_all("tr") if table.tbody else table.find_all("tr")
-    for row in rows:
-        cols = row.find_all("td")
-        if cols and len(cols) > 0:
-            plate = cols[0].text.strip()
-            plates.append(plate)
-    return plates
+    all_plates = set()
+    while True:
+        time.sleep(3)  # Чекаємо завантаження таблиці
+
+        try:
+            rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+            if not rows:
+                logger.warning("Не знайдено рядків у таблиці.")
+                break
+            for row in rows:
+                cols = row.find_elements(By.TAG_NAME, "td")
+                if cols:
+                    plate = cols[0].text.strip()
+                    all_plates.add(plate)
+        except Exception as e:
+            logger.error(f"Помилка при зборі номерів: {e}")
+            break
+
+        try:
+            next_button = driver.find_element(By.ID, "exampleTable_next")
+            parent_li = next_button.find_element(By.XPATH, "..")
+            classes = parent_li.get_attribute("class")
+            if 'disabled' in classes:
+                logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
+                break
+            logger.info("Переходимо на наступну сторінку.")
+            next_button.click()
+        except Exception as e:
+            logger.info("Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо.")
+            break
+
+    driver.quit()
+    return list(all_plates)
 
 def check_site():
     logger.info("Починаємо перевірку сайту...")
-    page = 1
-    new_found = []
 
-    while True:
-        html = fetch_plates_page(page)
-        if not html:
-            break
+    plates = fetch_plates_with_selenium()
+    if not plates:
+        logger.warning("Не вдалося завантажити номери.")
+        return
 
-        plates = parse_plates(html)
-        if not plates:
-            logger.info(f"Немає номерів на сторінці {page}, завершуємо.")
-            break
+    new_matches = []
+    for plate in plates:
+        if plate not in seen_plates and is_interesting_plate(plate):
+            seen_plates.add(plate)
+            new_matches.append(plate)
 
-        new_matches = []
-        for plate in plates:
-            if plate not in seen_plates and is_interesting_plate(plate):
-                seen_plates.add(plate)
-                new_matches.append(plate)
-
-        if new_matches:
-            logger.info(f"Знайдено {len(new_matches)} нових цікавих номерів на сторінці {page}: {new_matches}")
-            for plate in new_matches:
-                try:
-                    bot.send_message(CHAT_ID, f"🆕 Знайдено цікавий номер: {plate}")
-                except Exception as e:
-                    logger.error(f"Помилка надсилання повідомлення в Telegram: {e}")
-            save_seen_plates(new_matches)
-            new_found.extend(new_matches)
-        else:
-            logger.info(f"Нових цікавих номерів не знайдено на сторінці {page}.")
-
-        # Перевірка пагінації
-        soup = BeautifulSoup(html, 'html.parser')
-
-        pagination = soup.find('ul', class_='pagination')
-        if pagination:
-            logger.info("Пагінація HTML:\n" + pagination.prettify())
-        else:
-            logger.info("Пагінацію не знайдено на сторінці.")
-
-        next_button = None
-        for a in soup.find_all('a', class_='page-link'):
-            if a.text.strip() == "Наступна":
-                next_button = a
-                break
-
-        if not next_button:
-            logger.info("Кнопка 'Наступна' не знайдена, завершуємо перевірку.")
-            break
-
-        parent_li = next_button.find_parent('li')
-        if parent_li and 'disabled' in parent_li.get('class', []):
-            logger.info("Кнопка 'Наступна' відключена, завершуємо перевірку.")
-            break
-
-        logger.info(f"Переходимо на наступну сторінку: {page + 1}")
-        page += 1
-        time.sleep(2)
-
-    if new_found:
-        logger.info(f"Загалом знайдено {len(new_found)} нових цікавих номерів.")
+    if new_matches:
+        logger.info(f"Знайдено {len(new_matches)} нових цікавих номерів: {new_matches}")
+        for plate in new_matches:
+            try:
+                bot.send_message(CHAT_ID, f"🆕 Знайдено цікавий номер: {plate}")
+            except Exception as e:
+                logger.error(f"Помилка надсилання повідомлення в Telegram: {e}")
+        save_seen_plates(new_matches)
     else:
-        logger.info("Нема нових цікавих номерів за цю перевірку.")
+        logger.info("Нових цікавих номерів не знайдено.")
 
     try:
         bot.send_message(CHAT_ID, "✅ Перевірку завершено. Чекаємо 5 хв і починаємо знову.")
