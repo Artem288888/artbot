@@ -69,35 +69,44 @@ def fetch_plates_with_selenium():
     wait = WebDriverWait(driver, 10)
 
     while True:
-        time.sleep(3)
-
         try:
+            # Чекаємо поки таблиця присутня
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
             if not rows:
                 logger.warning("Не знайдено рядків у таблиці.")
                 break
+
             for row in rows:
                 cols = row.find_elements(By.TAG_NAME, "td")
                 if cols:
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
-        except Exception as e:
-            logger.error(f"Помилка при зборі номерів: {e}")
-            break
 
-        try:
+            # Знаходимо кнопку "Наступна"
             next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
             parent_li = next_button.find_element(By.XPATH, "..")
             classes = parent_li.get_attribute("class")
+
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
-            driver.execute_script("arguments[0].click();", next_button)
-            time.sleep(2)  # пауза для завантаження сторінки
+            next_button.click()
+
+            # Чекаємо, поки оновиться таблиця — перевіряємо, що перший рядок змінився
+            wait.until(EC.staleness_of(rows[0]))
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+
+            time.sleep(1)  # додатково трохи зачекати, щоб таблиця завантажилась
+
         except (TimeoutException, NoSuchElementException) as e:
             logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
+            break
+        except Exception as e:
+            logger.error(f"Несподівана помилка: {e}")
             break
 
     driver.quit()
@@ -105,12 +114,6 @@ def fetch_plates_with_selenium():
 
 def check_site():
     logger.info("Починаємо перевірку сайту...")
-
-    # Тестове повідомлення про початок перевірки
-    try:
-        bot.send_message(CHAT_ID, "🚀 Починаємо перевірку нових номерів...")
-    except Exception as e:
-        logger.error(f"Помилка надсилання тестового повідомлення: {e}")
 
     plates = fetch_plates_with_selenium()
     if not plates:
@@ -140,6 +143,12 @@ def check_site():
         logger.error(f"Помилка надсилання завершального повідомлення: {e}")
 
 def background_checker():
+    # Тестове повідомлення при запуску
+    try:
+        bot.send_message(CHAT_ID, "🤖 Бот запущено. Починаємо моніторинг номерів.")
+    except Exception as e:
+        logger.error(f"Помилка надсилання стартового повідомлення: {e}")
+
     while True:
         try:
             logger.info("Запуск перевірки сайту (фоновий потік).")
