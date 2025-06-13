@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,16 +62,43 @@ def fetch_plates_with_selenium():
     options.add_argument('--disable-dev-shm-usage')
 
     driver = webdriver.Chrome(options=options)
-    url = "https://opendata.hsc.gov.ua/check-leisure-license-plates/?region=Львівська&tsc=Весь+регіон&type_venichle=light_car_and_truck"
+    wait = WebDriverWait(driver, 20)
+
+    url = "https://opendata.hsc.gov.ua/check-leisure-license-plates/"
     driver.get(url)
 
+    try:
+        # Вибір області
+        region_select = wait.until(EC.presence_of_element_located((By.NAME, "region")))
+        for option in region_select.find_elements(By.TAG_NAME, "option"):
+            if "Львівська" in option.text:
+                option.click()
+                break
+
+        # Вибір типу транспорту
+        type_select = wait.until(EC.presence_of_element_located((By.NAME, "type_venichle")))
+        for option in type_select.find_elements(By.TAG_NAME, "option"):
+            if "легковий і вантажний" in option.text.lower():
+                option.click()
+                break
+
+        # Клік на "ПЕРЕГЛЯНУТИ"
+        view_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='ПЕРЕГЛЯНУТИ']")))
+        view_button.click()
+
+        # Очікування таблиці
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+        time.sleep(1)
+
+    except Exception as e:
+        logger.error(f"Помилка при взаємодії з формою: {e}")
+        driver.quit()
+        return []
+
     all_plates = set()
-    wait = WebDriverWait(driver, 20)
 
     while True:
         try:
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
-
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
             if not rows:
                 logger.warning("Не знайдено рядків у таблиці.")
@@ -83,23 +110,21 @@ def fetch_plates_with_selenium():
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
 
-            # --- ОНОВЛЕНИЙ БЛОК ПАГІНАЦІЇ ---
+            # Пошук і клік кнопки "Наступна"
             try:
                 next_button = wait.until(EC.presence_of_element_located((By.ID, "exampleTable_next")))
                 classes = next_button.get_attribute("class")
-                logger.info(f"Кнопка 'Наступна' знайдена, класи: {classes}")
                 if "disabled" in classes or not next_button.is_enabled():
                     logger.info("Кнопка 'Наступна' вимкнена, завершуємо пагінацію.")
                     break
-                else:
-                    logger.info("Натискаємо кнопку 'Наступна'...")
-                    try:
-                        next_button.click()
-                    except Exception:
-                        driver.execute_script("arguments[0].click();", next_button)
-                    wait.until(EC.staleness_of(rows[0]))
-                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
-                    time.sleep(1)
+                logger.info("Натискаємо кнопку 'Наступна'...")
+                try:
+                    next_button.click()
+                except Exception:
+                    driver.execute_script("arguments[0].click();", next_button)
+                wait.until(EC.staleness_of(rows[0]))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+                time.sleep(1)
             except TimeoutException:
                 logger.info("Кнопка 'Наступна' не знайдена, завершуємо пагінацію.")
                 break
