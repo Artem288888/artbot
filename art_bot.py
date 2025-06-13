@@ -86,18 +86,16 @@ def fetch_plates_with_selenium():
             break
 
         try:
-            time.sleep(1)  # Чекаємо перед пошуком кнопки
             next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            parent_li = next_button.find_element(By.XPATH, "./..")
+            parent_li = next_button.find_element(By.XPATH, "..")
             classes = parent_li.get_attribute("class")
-            logger.info(f"Клас батьківського елемента кнопки: {classes}")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
-            next_button.click()
-            time.sleep(2)  # Чекаємо оновлення таблиці після кліку
+            driver.execute_script("arguments[0].click();", next_button)
+            time.sleep(2)  # пауза для завантаження сторінки
         except (TimeoutException, NoSuchElementException) as e:
             logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
             break
@@ -107,6 +105,12 @@ def fetch_plates_with_selenium():
 
 def check_site():
     logger.info("Починаємо перевірку сайту...")
+
+    # Тестове повідомлення про початок перевірки
+    try:
+        bot.send_message(CHAT_ID, "🚀 Починаємо перевірку нових номерів...")
+    except Exception as e:
+        logger.error(f"Помилка надсилання тестового повідомлення: {e}")
 
     plates = fetch_plates_with_selenium()
     if not plates:
