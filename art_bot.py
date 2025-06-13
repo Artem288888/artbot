@@ -117,8 +117,14 @@ def check_site():
         else:
             logger.info(f"Нових цікавих номерів не знайдено на сторінці {page}.")
 
-        # Перевіряємо, чи є кнопка "Наступна" та чи активна вона
+        # Перевірка пагінації
         soup = BeautifulSoup(html, 'html.parser')
+
+        pagination = soup.find('ul', class_='pagination')
+        if pagination:
+            logger.info("Пагінація HTML:\n" + pagination.prettify())
+        else:
+            logger.info("Пагінацію не знайдено на сторінці.")
 
         next_button = None
         for a in soup.find_all('a', class_='page-link'):
