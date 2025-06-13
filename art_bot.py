@@ -86,17 +86,20 @@ def fetch_plates_with_selenium():
             break
 
         try:
+            time.sleep(1)  # Чекаємо перед пошуком кнопки
             next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            parent_li = next_button.find_element(By.XPATH, "..")
+            parent_li = next_button.find_element(By.XPATH, "./..")
             classes = parent_li.get_attribute("class")
+            logger.info(f"Клас батьківського елемента кнопки: {classes}")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
             next_button.click()
-        except (TimeoutException, NoSuchElementException):
-            logger.info("Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо.")
+            time.sleep(2)  # Чекаємо оновлення таблиці після кліку
+        except (TimeoutException, NoSuchElementException) as e:
+            logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
             break
 
     driver.quit()
