@@ -8,7 +8,7 @@ import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
@@ -80,6 +80,12 @@ def fetch_plates_with_selenium():
         search_button = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='submit' and @value='ПЕРЕГЛЯНУТИ']")))
         search_button.click()
 
+        # Вибір 100 у селекті для кількості записів
+        length_select = wait.until(EC.presence_of_element_located((By.NAME, "exampleTable_length")))
+        select = Select(length_select)
+        select.select_by_value("100")
+        time.sleep(2)  # Чекаємо підвантаження 100 записів
+
     except Exception as e:
         logger.error(f"Помилка при взаємодії з формою: {e}")
         driver.quit()
@@ -113,14 +119,12 @@ def fetch_plates_with_selenium():
                     logger.info("Кнопка 'Наступна' вимкнена, завершуємо пагінацію.")
                     break
                 else:
-                    # Збережемо поточні рядки таблиці для порівняння після кліку
                     old_rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
                     old_texts = [row.text for row in old_rows]
 
                     logger.info("Натискаємо кнопку 'Наступна'...")
                     driver.execute_script("arguments[0].click();", next_button)
 
-                    # Чекаємо оновлення таблиці - поки тексти рядків не зміняться
                     wait.until(lambda d: [row.text for row in d.find_elements(By.CSS_SELECTOR, "table tbody tr")] != old_texts)
 
                     page_num += 1
