@@ -84,12 +84,22 @@ def fetch_plates_with_selenium():
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
 
-            # Знаходимо кнопку "Наступна" за ID
-            next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            classes = next_button.get_attribute("class")
+            # Спроба знайти кнопку "Наступна"
+            try:
+                next_button = wait.until(EC.presence_of_element_located((By.ID, "exampleTable_next")))
+            except TimeoutException:
+                logger.info("Кнопка 'Наступна' не знайдена (таймаут), завершуємо.")
+                break
 
+            classes = next_button.get_attribute("class")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
+                break
+
+            try:
+                wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
+            except TimeoutException:
+                logger.info("Кнопка 'Наступна' не кликабельна, завершуємо.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
@@ -99,7 +109,7 @@ def fetch_plates_with_selenium():
             wait.until(EC.staleness_of(rows[0]))
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
 
-            time.sleep(2)  # трішки більше паузи
+            time.sleep(1)  # додатково трохи зачекати, щоб таблиця завантажилась
 
         except (TimeoutException, NoSuchElementException) as e:
             logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
