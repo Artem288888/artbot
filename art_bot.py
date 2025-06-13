@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,38 +69,36 @@ def fetch_plates_with_selenium():
     wait = WebDriverWait(driver, 10)
 
     while True:
+        time.sleep(3)  # Чекаємо завантаження таблиці
+
         try:
-            # Чекаємо поки таблиця завантажиться
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
             if not rows:
                 logger.warning("Не знайдено рядків у таблиці.")
                 break
-
             for row in rows:
                 cols = row.find_elements(By.TAG_NAME, "td")
                 if cols:
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
+        except Exception as e:
+            logger.error(f"Помилка при зборі номерів: {e}")
+            break
 
-            # Знаходимо кнопку "Наступна"
-            next_button = driver.find_element(By.CSS_SELECTOR, "a.paginate_button.next")
-            classes = next_button.get_attribute("class")
+        try:
+            # Чекаємо, поки кнопка наступна буде клікабельна
+            next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
+            
+            parent_li = next_button.find_element(By.XPATH, "..")
+            classes = parent_li.get_attribute("class")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
             next_button.click()
-
-            # Чекаємо оновлення таблиці (чекаємо поки перший рядок таблиці зміниться)
-            wait.until(EC.staleness_of(rows[0]))
-
-            # Пауза для завантаження нових даних
-            time.sleep(2)
-
-        except Exception as e:
-            logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. Помилка: {e}")
+        except (TimeoutException, NoSuchElementException):
+            logger.info("Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо.")
             break
 
     driver.quit()
@@ -152,27 +151,4 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running.")
 
     def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-
-def run_web_server():
-    port = int(os.getenv("PORT", "10000"))
-    logger.info(f"Запускаємо вебсервер на порті {port}")
-    server = HTTPServer(('0.0.0.0', port), Handler)
-    server.serve_forever()
-
-if __name__ == "__main__":
-    logger.info("Бот запущено. Очікуємо нових номерів...")
-
-    try:
-        bot.send_message(CHAT_ID, "🔧 Тестове повідомлення від бота!")
-        logger.info("Тестове повідомлення надіслано успішно.")
-    except Exception as e:
-        logger.error(f"Помилка надсилання тестового повідомлення: {e}")
-
-    # Запускаємо перевірку сайту у фоновому потоці
-    checker_thread = threading.Thread(target=background_checker, daemon=True)
-    checker_thread.start()
-
-    # Запускаємо вебсервер у головному потоці
-    run_web_server()
+        self.send
