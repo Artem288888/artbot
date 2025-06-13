@@ -68,23 +68,19 @@ def fetch_plates_with_selenium():
     wait = WebDriverWait(driver, 20)
 
     try:
-        # Вибір області
         region_select = wait.until(EC.presence_of_element_located((By.NAME, "region")))
         region_select.send_keys("Львівська")
 
-        # Вибір типу ТЗ
         type_select = wait.until(EC.presence_of_element_located((By.NAME, "type_venichle")))
         type_select.send_keys("Легкові та вантажні")
 
-        # Натискання кнопки "ПЕРЕГЛЯНУТИ"
         search_button = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='submit' and @value='ПЕРЕГЛЯНУТИ']")))
         search_button.click()
 
-        # Вибір 100 у селекті для кількості записів
         length_select = wait.until(EC.presence_of_element_located((By.NAME, "exampleTable_length")))
         select = Select(length_select)
         select.select_by_value("100")
-        time.sleep(2)  # Чекаємо підвантаження 100 записів
+        time.sleep(2)
 
     except Exception as e:
         logger.error(f"Помилка при взаємодії з формою: {e}")
@@ -124,11 +120,16 @@ def fetch_plates_with_selenium():
 
                     logger.info("Натискаємо кнопку 'Наступна'...")
                     driver.execute_script("arguments[0].click();", next_button)
+                    time.sleep(2)
 
-                    wait.until(lambda d: [row.text for row in d.find_elements(By.CSS_SELECTOR, "table tbody tr")] != old_texts)
+                    new_rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
+                    new_texts = [row.text for row in new_rows]
+
+                    if new_texts == old_texts:
+                        logger.info("Дані не змінились після натискання — завершуємо перегляд.")
+                        break
 
                     page_num += 1
-                    time.sleep(1)
 
             except TimeoutException:
                 logger.info("Кнопка 'Наступна' не знайдена або таблиця не оновилась — завершуємо пагінацію.")
