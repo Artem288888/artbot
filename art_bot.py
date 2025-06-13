@@ -70,7 +70,6 @@ def fetch_plates_with_selenium():
 
     while True:
         try:
-            # Чекаємо поки таблиця присутня
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
 
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
@@ -84,34 +83,26 @@ def fetch_plates_with_selenium():
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
 
-            # Спроба знайти кнопку "Наступна"
-            try:
-                next_button = wait.until(EC.presence_of_element_located((By.ID, "exampleTable_next")))
-            except TimeoutException:
-                logger.info("Кнопка 'Наступна' не знайдена (таймаут), завершуємо.")
-                break
+            next_button = wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
+            parent_li = next_button.find_element(By.XPATH, "..")
+            classes = parent_li.get_attribute("class")
 
-            classes = next_button.get_attribute("class")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
-                break
-
-            try:
-                wait.until(EC.element_to_be_clickable((By.ID, "exampleTable_next")))
-            except TimeoutException:
-                logger.info("Кнопка 'Наступна' не кликабельна, завершуємо.")
                 break
 
             logger.info("Переходимо на наступну сторінку.")
             next_button.click()
 
-            # Чекаємо, поки оновиться таблиця — перевіряємо, що перший рядок змінився
             wait.until(EC.staleness_of(rows[0]))
             wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
 
-            time.sleep(1)  # додатково трохи зачекати, щоб таблиця завантажилась
+            time.sleep(1)
 
-        except (TimeoutException, NoSuchElementException) as e:
+        except TimeoutException:
+            logger.info("Кнопка 'Наступна' не знайдена (таймаут), завершуємо.")
+            break
+        except NoSuchElementException as e:
             logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
             break
         except Exception as e:
@@ -152,7 +143,6 @@ def check_site():
         logger.error(f"Помилка надсилання завершального повідомлення: {e}")
 
 def background_checker():
-    # Тестове повідомлення при запуску
     try:
         bot.send_message(CHAT_ID, "🤖 Бот запущено. Починаємо моніторинг номерів.")
     except Exception as e:
@@ -184,10 +174,8 @@ def run_web_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    # Запускаємо вебсервер у окремому потоці, щоб не блокувати основну роботу
     web_thread = threading.Thread(target=run_web_server)
     web_thread.daemon = True
     web_thread.start()
 
-    # Запускаємо фоновий цикл перевірки
     background_checker()
