@@ -84,38 +84,19 @@ def fetch_plates_with_selenium():
                     all_plates.add(plate)
 
             # --- ОНОВЛЕНИЙ БЛОК ПАГІНАЦІЇ ---
-            next_button = None
-            buttons = driver.find_elements(By.CSS_SELECTOR, "a.paginate_button.next")
-
-            for b in buttons:
-                text = b.text.strip()
-                classes = b.get_attribute("class")
-                aria_disabled = b.get_attribute("aria-disabled")
-                logger.info(f"Кнопка пагінації: текст='{text}', клас='{classes}', aria-disabled='{aria_disabled}'")
-
-                if text == "Наступна" and "disabled" not in classes and aria_disabled != "true":
-                    next_button = b
-                    break
-
-            if not next_button:
-                logger.info("Кнопка 'Наступна' не знайдена або вимкнена, завершуємо.")
+            try:
+                next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.paginate_button.next:not(.disabled)")))
+                logger.info("Знайдено і натискаємо кнопку 'Наступна'.")
+                next_button.click()
+                wait.until(EC.staleness_of(rows[0]))  # Очікуємо оновлення таблиці
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
+                time.sleep(1)
+            except TimeoutException:
+                logger.info("Кнопка 'Наступна' не знайдена або неактивна, завершуємо пагінацію.")
                 break
 
-            logger.info("Переходимо на наступну сторінку.")
-            next_button.click()
-
-            wait.until(EC.staleness_of(rows[0]))
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
-            time.sleep(1)
-
-        except TimeoutException:
-            logger.info("Таймаут очікування пагінації, завершуємо.")
-            break
-        except NoSuchElementException as e:
-            logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. {e}")
-            break
         except Exception as e:
-            logger.error(f"Несподівана помилка: {e}")
+            logger.error(f"Несподівана помилка при обробці сторінки: {e}")
             break
 
     driver.quit()
