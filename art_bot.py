@@ -8,6 +8,8 @@ import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 logging.basicConfig(
     level=logging.INFO,
@@ -63,34 +65,41 @@ def fetch_plates_with_selenium():
     driver.get(url)
 
     all_plates = set()
-    while True:
-        time.sleep(3)  # Чекаємо завантаження таблиці
+    wait = WebDriverWait(driver, 10)
 
+    while True:
         try:
+            # Чекаємо поки таблиця завантажиться
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr")))
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
             if not rows:
                 logger.warning("Не знайдено рядків у таблиці.")
                 break
+
             for row in rows:
                 cols = row.find_elements(By.TAG_NAME, "td")
                 if cols:
                     plate = cols[0].text.strip()
                     all_plates.add(plate)
-        except Exception as e:
-            logger.error(f"Помилка при зборі номерів: {e}")
-            break
 
-        try:
-            next_button = driver.find_element(By.ID, "exampleTable_next")
-            parent_li = next_button.find_element(By.XPATH, "..")
-            classes = parent_li.get_attribute("class")
+            # Знаходимо кнопку "Наступна"
+            next_button = driver.find_element(By.CSS_SELECTOR, "a.paginate_button.next")
+            classes = next_button.get_attribute("class")
             if 'disabled' in classes:
                 logger.info("Кнопка 'Наступна' відключена — кінець пагінації.")
                 break
+
             logger.info("Переходимо на наступну сторінку.")
             next_button.click()
+
+            # Чекаємо оновлення таблиці (чекаємо поки перший рядок таблиці зміниться)
+            wait.until(EC.staleness_of(rows[0]))
+
+            # Пауза для завантаження нових даних
+            time.sleep(2)
+
         except Exception as e:
-            logger.info("Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо.")
+            logger.info(f"Кнопку 'Наступна' не знайдено або не вдається натиснути, завершуємо. Помилка: {e}")
             break
 
     driver.quit()
